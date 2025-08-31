@@ -2,122 +2,117 @@
 <html>
 <head>
     <title>MAXimalno</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial; background: #000; color: #0f0; padding: 20px; }
-        #chat { border: 1px solid #0f0; padding: 10px; height: 60vh; overflow-y: scroll; margin: 10px 0; background: #111; }
-        .message { margin: 5px 0; padding: 5px; }
-        .my { color: #0ff; text-align: right; }
-        .system { color: #888; font-style: italic; }
-        input { 
-            width: 70%; padding: 10px; background: #000; 
-            color: #0f0; border: 1px solid #0f0; 
+        body { 
+            font-family: Arial; 
+            background: #000; 
+            color: #0f0; 
+            padding: 20px; 
+            max-width: 400px; 
+            margin: 0 auto; 
+        }
+        #chat { 
+            height: 300px; 
+            border: 2px solid #0f0; 
+            overflow-y: scroll; 
+            padding: 10px; 
+            margin: 10px 0; 
+            background: #111; 
+        }
+        .msg { 
+            margin: 8px 0; 
+            padding: 8px; 
+            border-radius: 8px; 
+            background: #222; 
+        }
+        .my { 
+            background: #006600; 
+            text-align: right; 
+        }
+        #input { 
+            width: 70%; 
+            padding: 10px; 
+            background: #222; 
+            color: #0f0; 
+            border: 1px solid #0f0; 
+            border-radius: 5px; 
         }
         button { 
-            padding: 10px; background: #000; color: #0f0; 
-            border: 1px solid #0f0; margin-left: 5px; 
+            padding: 10px; 
+            background: #006600; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
         }
     </style>
 </head>
 <body>
-    <h1>MAXimalno 🚀</h1>
+    <h1>MAXimalno 🔥</h1>
     <div id="chat"></div>
     <div>
-        <input type="text" id="msgInput" placeholder="Type message..." onkeypress="if(event.key=='Enter') sendMessage()">
-        <button onclick="sendMessage()">Send</button>
+        <input type="text" id="input" placeholder="Твое сообщение...">
+        <button onclick="sendMessage()">➤</button>
     </div>
 
     <script>
-        const userId = Math.random().toString(36).substring(2, 10);
+        const SERVER_IP = '85.174.197.147'; // ЗАМЕНИ НА СВОЙ IP
         let ws = null;
-        let serverUrl = ''; // Будет определен автоматически
+        let myName = 'Аноним' + Math.floor(Math.random() * 1000);
 
-        // Функция для добавления сообщения в чат
+        function connect() {
+            try {
+                ws = new WebSocket(`ws://${SERVER_IP}:8765`);
+                
+                ws.onopen = () => {
+                    addMessage('✅ Подключено к серверу', 'system');
+                };
+                
+                ws.onmessage = (event) => {
+                    addMessage(event.data, 'other');
+                };
+                
+                ws.onclose = () => {
+                    addMessage('❌ Соединение потеряно', 'system');
+                    setTimeout(connect, 3000);
+                };
+                
+            } catch (error) {
+                addMessage('❌ Ошибка подключения', 'system');
+            }
+        }
+
         function addMessage(text, type = 'other') {
             const chat = document.getElementById('chat');
             const msg = document.createElement('div');
-            msg.className = `message ${type}`;
+            msg.className = `msg ${type}`;
             msg.textContent = text;
             chat.appendChild(msg);
             chat.scrollTop = chat.scrollHeight;
         }
 
-        // Функция подключения к серверу
-        function connectToServer() {
-            // Пытаемся подключиться к серверу
-            ws = new WebSocket(serverUrl);
-            
-            ws.onopen = () => {
-                addMessage("✅ Connected to MAXimalno server!", "system");
-                // Отправляем идентификатор пользователя
-                ws.send(JSON.stringify({
-                    type: 'register',
-                    userId: userId
-                }));
-            };
-            
-            ws.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.type === 'message') {
-                        addMessage(`${data.from}: ${data.text}`, data.from === userId ? 'my' : 'other');
-                    } else if (data.type === 'users_online') {
-                        addMessage(`📊 Users online: ${data.count}`, 'system');
-                    }
-                } catch (error) {
-                    console.error('Error parsing message:', error);
-                }
-            };
-            
-            ws.onclose = () => {
-                addMessage("❌ Connection lost. Reconnecting...", "system");
-                setTimeout(connectToServer, 3000);
-            };
-            
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                addMessage("❌ Connection error", "system");
-            };
-        }
-
-        // Функция отправки сообщения
         function sendMessage() {
-            const input = document.getElementById('msgInput');
+            const input = document.getElementById('input');
             const text = input.value.trim();
             
             if (text && ws && ws.readyState === WebSocket.OPEN) {
-                const message = {
-                    type: 'message',
-                    text: text,
-                    from: userId,
-                    to: 'all' // Отправляем всем
-                };
-                
-                ws.send(JSON.stringify(message));
-                addMessage(`You: ${text}`, 'my');
+                const fullMessage = `${myName}: ${text}`;
+                ws.send(fullMessage);
+                addMessage(fullMessage, 'my');
                 input.value = '';
             }
         }
 
-        // Автоматическое определение URL сервера
-        async function init() {
-            try {
-                // Получаем информацию о сервере
-                const response = await fetch('/server-info.json');
-                const serverInfo = await response.json();
-                serverUrl = serverInfo.ws_url;
-                
-                addMessage("🔗 Connecting to server...", "system");
-                connectToServer();
-                
-            } catch (error) {
-                addMessage("❌ Cannot get server information", "system");
-                addMessage("Please make sure server is running", "system");
-            }
-        }
-
-        // Запускаем при загрузке страницы
-        window.onload = init;
+        // Запрос имени
+        const name = prompt('Введите ваше имя:');
+        if (name) myName = name;
+        
+        // Запуск
+        connect();
+        
+        document.getElementById('input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
     </script>
 </body>
-  </html>
+</html>
